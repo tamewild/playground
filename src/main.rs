@@ -1,4 +1,5 @@
-use iced::{application, Element, Task};
+use iced::{application, Element, Length, Task};
+use iced::widget::{container, Container, row, Row};
 use crate::settings::{SettingsMessage, SettingsView};
 
 mod openai;
@@ -33,10 +34,20 @@ impl Playground {
         }
     }
 
-    fn view(&self) -> Element<PlaygroundMessage> {
-        Element::from(self.settings_view.view())
-            .map(PlaygroundMessage::Settings)
+    fn view(&self) -> Row<PlaygroundMessage> {
+        row([
+            container(chats_placeholder())
+                .width(Length::FillPortion(3))
+                .into(),
+            Element::from(self.settings_view.view())
+                .map(PlaygroundMessage::Settings)
+        ])
     }
+}
+
+fn chats_placeholder() -> Container<'static, PlaygroundMessage> {
+    container("Chats would be here")
+        .center(Length::Fill)
 }
 
 fn main() -> iced::Result {
