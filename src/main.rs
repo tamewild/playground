@@ -26,7 +26,7 @@ impl Playground {
         )
     }
 
-    fn update(&mut self, message: PlaygroundMessage) {
+    fn update(&mut self, message: PlaygroundMessage) -> Task<PlaygroundMessage> {
         match message {
             PlaygroundMessage::Settings(msg) => {
                 self.settings_view.update(msg)

@@ -3,13 +3,21 @@ use std::fmt::Display;
 use std::str::FromStr;
 use iced::futures::TryFutureExt;
 use iced::{Element, Length, Task, Theme};
-use iced::widget::{column, Column, Container, container, text, text_input, TextInput};
+use iced::alignment::Horizontal;
+use iced::widget::{button, column, Column, Container, container, text, text_input, TextInput};
 use serde::{Deserialize, Serialize};
+use crate::PlaygroundMessage;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Parsable<T> {
     content: String,
     parsed: Option<T>,
+}
+
+impl<T> Parsable<T> {
+    fn is_valid(&self) -> bool {
+        self.parsed.is_some()
+    }
 }
 
 impl<T: FromStr> Parsable<T> {
@@ -81,7 +89,9 @@ pub enum SettingsMessage {
     ApiKeyChanged(String),
     ModelChanged(String),
     MaxTokensChanged(Parsable<u32>),
-    TemperatureChanged(Parsable<f32>)
+    TemperatureChanged(Parsable<f32>),
+    Save,
+    SaveResult(Result<SerializedSettings, String>)
 }
 
 async fn load_existing_settings() -> anyhow::Result<SerializedSettings> {
@@ -91,11 +101,11 @@ async fn load_existing_settings() -> anyhow::Result<SerializedSettings> {
         .map_err(Into::into)
 }
 
-async fn save_settings(serialized_settings: &SerializedSettings) -> anyhow::Result<()> {
+async fn save_settings(serialized_settings: SerializedSettings) -> anyhow::Result<SerializedSettings> {
     tokio::fs::write(
         "settings.json",
-        serde_json::to_string_pretty(serialized_settings)?
-    ).await.map_err(Into::into)
+        serde_json::to_string_pretty(&serialized_settings)?
+    ).await.map(|_| serialized_settings).map_err(Into::into)
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -104,6 +114,18 @@ pub struct SettingsState {
     saved_settings: SerializedSettings,
     /// Presented in the UI, may not be saved.
     live_settings: SerializedSettings
+}
+
+impl SettingsState {
+    fn valid_parsables(&self) -> bool {
+        let settings = &self.live_settings;
+
+        settings.max_tokens.is_valid() && settings.temperature.is_valid()
+    }
+
+    fn unsaved_changes(&self) -> bool {
+        self.saved_settings != self.live_settings
+    }
 }
 
 pub enum SettingsView {
@@ -135,25 +157,58 @@ impl SettingsView {
         }
     }
 
-    pub fn update(&mut self, message: SettingsMessage) {
+    pub fn update(&mut self, message: SettingsMessage) -> Task<PlaygroundMessage> {
         match message {
             SettingsMessage::Load(state) => {
                 *self = SettingsView::Loaded(state);
+
+                Task::none()
             }
             SettingsMessage::BaseUrlChanged(url) => {
-                self.update_settings(|settings| settings.base_url = url)
+                self.update_settings(|settings| settings.base_url = url);
+
+                Task::none()
             }
             SettingsMessage::ApiKeyChanged(api_key) => {
-                self.update_settings(|settings| settings.api_key = api_key)
+                self.update_settings(|settings| settings.api_key = api_key);
+
+                Task::none()
             }
             SettingsMessage::ModelChanged(model) => {
-                self.update_settings(|settings| settings.model = model)
+                self.update_settings(|settings| settings.model = model);
+
+                Task::none()
             }
             SettingsMessage::MaxTokensChanged(max_tokens) => {
-                self.update_settings(|settings| settings.max_tokens = max_tokens)
+                self.update_settings(|settings| settings.max_tokens = max_tokens);
+
+                Task::none()
             }
             SettingsMessage::TemperatureChanged(temperature) => {
-                self.update_settings(|settings| settings.temperature = temperature)
+                self.update_settings(|settings| settings.temperature = temperature);
+
+                Task::none()
+            }
+            SettingsMessage::Save => {
+                let new_settings = self.settings().live_settings.clone();
+
+                Task::future(save_settings(new_settings))
+                    .map(|settings| {
+                        PlaygroundMessage::Settings(SettingsMessage::SaveResult(
+                            settings.map_err(|err| err.to_string())
+                        ))
+                    })
+            }
+            SettingsMessage::SaveResult(res) => {
+                // Ignore the error for now
+                if let Ok(new_settings) = res {
+                    *self = SettingsView::Loaded(SettingsState {
+                        saved_settings: new_settings.clone(),
+                        live_settings: new_settings,
+                    });
+                }
+
+                Task::none()
             }
         }
     }
@@ -231,7 +286,29 @@ impl SettingsView {
                             )
                         )
                             .spacing(5)
-                            .into()
+                            .into(),
+
+                        match settings_state.valid_parsables() {
+                            true => {
+                                button(
+                                    container("Save")
+                                        .center_x(Length::Fill)
+                                )
+                                    .on_press_maybe(match settings_state.unsaved_changes() {
+                                        true => Some(SettingsMessage::Save),
+                                        false => None
+                                    })
+                                    .into()
+                            }
+                            false => {
+                                button(
+                                    container("Invalid values")
+                                        .center_x(Length::Fill)
+                                )
+                                    .style(button::danger)
+                                    .into()
+                            }
+                        }
                     ])
                         .spacing(10)
                         .into()
