@@ -26,7 +26,11 @@ impl Playground {
     }
 
     fn update(&mut self, message: PlaygroundMessage) {
-
+        match message {
+            PlaygroundMessage::Settings(msg) => {
+                self.settings_view.update(msg)
+            }
+        }
     }
 
     fn view(&self) -> Element<PlaygroundMessage> {
