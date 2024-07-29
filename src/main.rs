@@ -1,4 +1,5 @@
 mod openai;
+mod settings;
 
 struct Playground {
 

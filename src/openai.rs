@@ -47,12 +47,31 @@ impl CompletionRequest {
     }
 }
 
+#[derive(Debug)]
+enum CompletionsError {
+    Stream(reqwest_eventsource::Error),
+    SerdeJson(serde_json::Error),
+    DeltaNotFound(Value)
+}
+
+impl From<reqwest_eventsource::Error> for CompletionsError {
+    fn from(value: reqwest_eventsource::Error) -> Self {
+        Self::Stream(value)
+    }
+}
+
+impl From<serde_json::Error> for CompletionsError {
+    fn from(value: serde_json::Error) -> Self {
+        Self::SerdeJson(value)
+    }
+}
+
 /// Returns a completions stream with the completion delta as each item
 pub fn completions(
     base_url: &str,
     api_key: &str,
-    mut request: CompletionRequest
-) -> impl Stream<Item = Result<String, reqwest_eventsource::Error>>
+    request: CompletionRequest
+) -> impl Stream<Item = Result<String, CompletionsError>>
 {
     const COMPLETIONS_PATH: &str = "v1/chat/completions";
 
@@ -69,12 +88,13 @@ pub fn completions(
         .json(&request)
         .header(AUTHORIZATION, format!("Bearer {api_key}"))
         .eventsource()
-        .unwrap()
+        .unwrap() // Impossible
         .take_while(|res| {
             future::ready(
                 !matches!(res, Err(reqwest_eventsource::Error::StreamEnded))
             )
         })
+        .map_err(Into::into)
         .try_filter_map(|event| async move {
             Ok(match event {
                 Event::Message(event) => {
@@ -82,12 +102,13 @@ pub fn completions(
                         return Ok(None)
                     }
 
-                    let value = serde_json::from_str::<Value>(event.data.as_str()).unwrap();
-                    value.pointer("/choices/0/delta/content")
-                        .and_then(Value::as_str)
-                        .map(str::to_string)
-                        .unwrap()
-                        .into()
+                    let value = serde_json::from_str::<Value>(event.data.as_str())?;
+                    Some(
+                        value.pointer("/choices/0/delta/content")
+                            .and_then(Value::as_str)
+                            .map(str::to_string)
+                            .ok_or(CompletionsError::DeltaNotFound(value))?
+                    )
                 }
                 _ => None
             })
