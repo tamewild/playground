@@ -1,28 +1,68 @@
 use std::borrow::Cow;
+use std::fmt::Display;
 use std::str::FromStr;
 use iced::futures::TryFutureExt;
-use iced::{Element, Length, Task};
-use iced::widget::{column, Container, container, text, text_input};
+use iced::{Element, Length, Task, Theme};
+use iced::widget::{column, Column, Container, container, text, text_input, TextInput};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum Parsable<T> {
-    Valid(T),
-    Invalid(String)
+pub struct Parsable<T> {
+    content: String,
+    parsed: Option<T>,
 }
 
 impl<T: FromStr> Parsable<T> {
     fn parse(string: String) -> Self {
-        string.parse::<T>()
-            .map(Self::Valid)
-            .unwrap_or(Parsable::Invalid(string))
+        let parsed = string.parse().ok();
+
+        Self {
+            content: string,
+            parsed,
+        }
     }
 }
 
-impl<T: Default> Default for Parsable<T> {
+impl<T: Default + Display> Default for Parsable<T> {
     fn default() -> Self {
-        Self::Valid(T::default())
+        let t = T::default();
+
+        Self {
+            content: t.to_string(),
+            parsed: Some(t),
+        }
     }
+}
+
+fn parsable_text_input<'a, T: FromStr>(
+    placeholder: &'a str,
+    parsable: &'a Parsable<T>,
+    f: impl 'a + Fn(Parsable<T>) -> SettingsMessage
+) -> TextInput<'a, SettingsMessage> {
+    let style_fn = match parsable.parsed {
+        None => |theme: &Theme, status| {
+            text_input::Style {
+                value: theme.palette().danger,
+                ..text_input::default(theme, status)
+            }
+        },
+        _ => text_input::default
+    };
+
+    TextInput::new(placeholder, parsable.content.as_str())
+        .style(style_fn)
+        .on_input(move |changed| f(Parsable::parse(changed)))
+}
+
+// rustrover can't resolve the column macro properly, so this is a stopgap
+fn pair_in_column<'a>(
+    a: impl Into<Element<'a, SettingsMessage>>,
+    b: impl Into<Element<'a, SettingsMessage>>
+) -> Column<'a, SettingsMessage> {
+    column([
+        a.into(),
+        b.into()
+    ])
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -128,16 +168,72 @@ impl SettingsView {
                     )
                 }
                 SettingsView::Loaded(settings_state) => {
+                    let SerializedSettings {
+                        base_url,
+                        api_key,
+                        model,
+                        max_tokens,
+                        temperature
+                    } = &settings_state.live_settings;
+
                     column([
-                        "Base URL".into(),
-                        text_input(
-                            "e.g. https://api.openai.com/",
-                            settings_state.live_settings.base_url.as_str()
+                        pair_in_column(
+                            "Base URL",
+                            text_input(
+                                "e.g. https://api.openai.com/",
+                                base_url
+                            )
+                                .on_input(SettingsMessage::BaseUrlChanged)
                         )
-                            .on_input(SettingsMessage::BaseUrlChanged)
+                            .spacing(5)
+                            .into(),
+
+                        pair_in_column(
+                            "API Key",
+                            text_input(
+                                "",
+                                api_key
+                            )
+                                .secure(true)
+                                .on_input(SettingsMessage::ApiKeyChanged)
+                        )
+                            .spacing(5)
+                            .into(),
+
+                        pair_in_column(
+                            "Model",
+                            text_input(
+                                "Model ID e.g. gpt-4o-mini",
+                                model
+                            )
+                                .on_input(SettingsMessage::ModelChanged)
+                        )
+                            .spacing(5)
+                            .into(),
+
+                        pair_in_column(
+                            "Max Tokens",
+                            parsable_text_input(
+                                "e.g. 1000",
+                                max_tokens,
+                                SettingsMessage::MaxTokensChanged
+                            )
+                        )
+                            .spacing(5)
+                            .into(),
+
+                        pair_in_column(
+                            "Temperature",
+                            parsable_text_input(
+                                "e.g. 1.0",
+                                temperature,
+                                SettingsMessage::TemperatureChanged
+                            )
+                        )
+                            .spacing(5)
                             .into()
                     ])
-                        .spacing(7.5)
+                        .spacing(10)
                         .into()
                 }
             }

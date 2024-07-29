@@ -13,6 +13,7 @@ anyhow = "1.0.86"
 
 [dependencies.iced]
 git = "https://github.com/iced-rs/iced.git"
+rev = "6734d183594ebf89b8e6c030ea69d53ecb6b72db"
 features = ["debug", "tokio"]
 
 [dev-dependencies]
