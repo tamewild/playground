@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 use std::str::FromStr;
 use iced::futures::TryFutureExt;
-use iced::{Length, Task};
-use iced::widget::{Container, container, text, text_input};
+use iced::{Element, Length, Task};
+use iced::widget::{column, Container, container, text, text_input};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -34,7 +34,7 @@ struct SerializedSettings {
     temperature: Parsable<f32>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SettingsMessage {
     Load(SettingsState),
     BaseUrlChanged(String),
@@ -89,24 +89,61 @@ impl SettingsView {
         }
     }
 
+    fn update_settings<F: FnOnce(&mut SerializedSettings)>(&mut self, f: F) {
+        if let SettingsView::Loaded(state) = self {
+            f(&mut state.live_settings)
+        }
+    }
+
     pub fn update(&mut self, message: SettingsMessage) {
         match message {
             SettingsMessage::Load(state) => {
                 *self = SettingsView::Loaded(state);
             }
-            SettingsMessage::BaseUrlChanged(_) => {}
-            SettingsMessage::ApiKeyChanged(_) => {}
-            SettingsMessage::ModelChanged(_) => {}
-            SettingsMessage::MaxTokensChanged(_) => {}
-            SettingsMessage::TemperatureChanged(_) => {}
+            SettingsMessage::BaseUrlChanged(url) => {
+                self.update_settings(|settings| settings.base_url = url)
+            }
+            SettingsMessage::ApiKeyChanged(api_key) => {
+                self.update_settings(|settings| settings.api_key = api_key)
+            }
+            SettingsMessage::ModelChanged(model) => {
+                self.update_settings(|settings| settings.model = model)
+            }
+            SettingsMessage::MaxTokensChanged(max_tokens) => {
+                self.update_settings(|settings| settings.max_tokens = max_tokens)
+            }
+            SettingsMessage::TemperatureChanged(temperature) => {
+                self.update_settings(|settings| settings.temperature = temperature)
+            }
         }
     }
 
     pub fn view(&self) -> Container<SettingsMessage> {
         container(
-            container(text("Loading Settings...")).center(Length::Fill)
+            match self {
+                SettingsView::Loading => {
+                    Element::from(
+                        container(text("Loading Settings..."))
+                            .center(Length::Fill)
+                    )
+                }
+                SettingsView::Loaded(settings_state) => {
+                    column([
+                        "Base URL".into(),
+                        text_input(
+                            "e.g. https://api.openai.com/",
+                            settings_state.live_settings.base_url.as_str()
+                        )
+                            .on_input(SettingsMessage::BaseUrlChanged)
+                            .into()
+                    ])
+                        .spacing(7.5)
+                        .into()
+                }
+            }
         )
             .style(container::rounded_box)
+            .padding(5.0)
             .width(Length::Fill)
             .height(Length::Fill)
     }
