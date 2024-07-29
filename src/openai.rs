@@ -1,6 +1,7 @@
 use std::fmt::Display;
 use std::future;
 use std::sync::OnceLock;
+use anyhow::anyhow;
 use iced::futures::{Stream, StreamExt, TryStreamExt};
 use reqwest::header::AUTHORIZATION;
 use reqwest_eventsource::{Event, RequestBuilderExt};
@@ -47,31 +48,12 @@ impl CompletionRequest {
     }
 }
 
-#[derive(Debug)]
-enum CompletionsError {
-    Stream(reqwest_eventsource::Error),
-    SerdeJson(serde_json::Error),
-    DeltaNotFound(Value)
-}
-
-impl From<reqwest_eventsource::Error> for CompletionsError {
-    fn from(value: reqwest_eventsource::Error) -> Self {
-        Self::Stream(value)
-    }
-}
-
-impl From<serde_json::Error> for CompletionsError {
-    fn from(value: serde_json::Error) -> Self {
-        Self::SerdeJson(value)
-    }
-}
-
 /// Returns a completions stream with the completion delta as each item
 pub fn completions(
     base_url: &str,
     api_key: &str,
     request: CompletionRequest
-) -> impl Stream<Item = Result<String, CompletionsError>>
+) -> impl Stream<Item = anyhow::Result<String>>
 {
     const COMPLETIONS_PATH: &str = "v1/chat/completions";
 
@@ -107,7 +89,9 @@ pub fn completions(
                         value.pointer("/choices/0/delta/content")
                             .and_then(Value::as_str)
                             .map(str::to_string)
-                            .ok_or(CompletionsError::DeltaNotFound(value))?
+                            .ok_or_else(|| {
+                                anyhow!("Delta not found within:\n{value:#}")
+                            })?
                     )
                 }
                 _ => None

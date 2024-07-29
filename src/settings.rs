@@ -1,7 +1,10 @@
+use std::borrow::Cow;
 use std::str::FromStr;
+use iced::futures::TryFutureExt;
+use iced::Task;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Parsable<T> {
     Valid(T),
     Invalid(String)
@@ -21,7 +24,7 @@ impl<T: Default> Default for Parsable<T> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 struct SerializedSettings {
     base_url: String,
     api_key: String,
@@ -38,16 +41,56 @@ pub enum SettingsMessage {
     TemperatureChanged(Parsable<f32>)
 }
 
-async fn serialized_settings() -> std::io::Result<SerializedSettings> {
-    todo!()
+async fn load_existing_settings() -> anyhow::Result<SerializedSettings> {
+    let data = tokio::fs::read("settings.json").await?;
+
+    serde_json::from_slice::<SerializedSettings>(data.as_slice())
+        .map_err(Into::into)
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+async fn save_settings(serialized_settings: &SerializedSettings) -> anyhow::Result<()> {
+    tokio::fs::write(
+        "settings.json",
+        serde_json::to_string_pretty(serialized_settings)?
+    ).await.map_err(Into::into)
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Settings {
-    serialized_settings: SerializedSettings,
-    changed: bool
+    /// Latest saved settings (to file) if applicable
+    saved_settings: SerializedSettings,
+    /// Presented in the UI, may not be saved.
+    live_settings: SerializedSettings
 }
 
-impl Settings {
+pub enum SettingsView {
+    Loading,
+    Loaded(Settings)
+}
 
+impl SettingsView {
+    pub fn new() -> (Self, Task<Settings>) {
+        (Self::Loading, Task::future(async move {
+            let settings = load_existing_settings().await.unwrap_or_default();
+            Settings {
+                saved_settings: settings.clone(),
+                live_settings: settings,
+            }
+        }))
+    }
+
+    pub fn settings(&self) -> Cow<Settings> {
+        match self {
+            SettingsView::Loading => Cow::Owned(Settings::default()),
+            SettingsView::Loaded(settings) => Cow::Borrowed(settings)
+        }
+    }
+
+    pub fn update(&self, message: SettingsMessage) {
+
+    }
+
+    pub fn view(&self) {
+
+    }
 }
