@@ -1,6 +1,6 @@
 use crate::settings::{SettingsMessage, SettingsView};
 use iced::widget::{container, row, Container, Row};
-use iced::{application, Element, Length, Task};
+use iced::{application, Element, Length, Task, Theme};
 use crate::chat::{ChatView, ChatViewMsg};
 
 mod openai;
@@ -53,5 +53,7 @@ impl Playground {
 }
 
 fn main() -> iced::Result {
-    application("Playground", Playground::update, Playground::view).run_with(Playground::new)
+    application("Playground", Playground::update, Playground::view)
+        .theme(|_| Theme::Dark)
+        .run_with(Playground::new)
 }
