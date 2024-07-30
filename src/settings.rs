@@ -2,9 +2,11 @@ use std::borrow::Cow;
 use std::fmt::Display;
 use std::str::FromStr;
 
-use iced::widget::{button, column, container, text, text_input, Column, Container, TextInput, slider, row, horizontal_space};
-use iced::{Border, Color, Element, Length, Padding, Task, Theme};
-use iced::alignment::Horizontal;
+use iced::{Border, Element, Length, Padding, Task, Theme};
+use iced::widget::{
+    button, column, Column, container, Container, row, slider, text, text_input,
+    TextInput,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::PlaygroundMessage;
@@ -17,7 +19,8 @@ pub struct Parsable<T> {
 
 impl<T> Parsable<T> {
     pub fn new(object: T) -> Self
-        where T: Display
+    where
+        T: Display,
     {
         Self {
             content: object.to_string(),
@@ -30,7 +33,8 @@ impl<T> Parsable<T> {
     }
 
     pub fn parsed(&self) -> Option<T>
-        where T: Copy
+    where
+        T: Copy,
     {
         self.parsed
     }
@@ -96,7 +100,7 @@ pub struct SerializedSettings {
     pub max_tokens: Parsable<u32>,
     pub temperature: Parsable<f32>,
     #[serde(default = "default_ui_scale")]
-    pub ui_scale: f32
+    pub ui_scale: f32,
 }
 
 impl Default for SerializedSettings {
@@ -232,12 +236,12 @@ impl SettingsView {
                 self.update_settings(|settings| settings.temperature = temperature);
 
                 Task::none()
-            },
+            }
             SettingsMessage::UiScaleChanged(scale) => {
                 self.update_settings(|settings| settings.ui_scale = scale);
 
                 Task::none()
-            },
+            }
             SettingsMessage::Save => {
                 let new_settings = self.settings().live_settings.clone();
 
@@ -275,7 +279,7 @@ impl SettingsView {
                     model,
                     max_tokens,
                     temperature,
-                    ui_scale
+                    ui_scale,
                 } = &settings_state.live_settings;
 
                 column([
@@ -334,14 +338,10 @@ impl SettingsView {
                             button("Reset")
                                 .style(button::secondary)
                                 .on_press(SettingsMessage::UiScaleChanged(100.0))
-                                .into()
+                                .into(),
                         ])
                         .spacing(7),
-                        slider(
-                            50.0..=150.0,
-                            *ui_scale,
-                            SettingsMessage::UiScaleChanged
-                        )
+                        slider(50.0..=150.0, *ui_scale, SettingsMessage::UiScaleChanged),
                     )
                     .spacing(5)
                     .into(),
@@ -361,10 +361,7 @@ impl SettingsView {
                 .into()
             }
         })
-        .style(|theme| {
-            container::rounded_box(theme)
-                .border(Border::default())
-        })
+        .style(|theme| container::rounded_box(theme).border(Border::default()))
         .padding(5.0)
         .width(Length::Fill)
         .height(Length::Fill)

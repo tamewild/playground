@@ -1,10 +1,10 @@
-use std::fmt::{Debug, Display, Formatter};
 use anyhow::anyhow;
 use iced::futures::{Stream, StreamExt, TryStreamExt};
 use reqwest::header::AUTHORIZATION;
 use reqwest_eventsource::{Event, RequestBuilderExt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::fmt::{Debug, Display, Formatter};
 use std::future;
 use std::sync::OnceLock;
 
