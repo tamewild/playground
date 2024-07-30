@@ -50,10 +50,16 @@ impl Playground {
             Element::from(self.settings_view.view()).map(PlaygroundMessage::Settings),
         ])
     }
+
+    fn scale_factor(&self) -> f64 {
+        (self.settings_view.settings().saved().ui_scale as f64)
+            / 100.0
+    }
 }
 
 fn main() -> iced::Result {
     application("Playground", Playground::update, Playground::view)
+        .scale_factor(Playground::scale_factor)
         .theme(|_| Theme::Dark)
         .run_with(Playground::new)
 }

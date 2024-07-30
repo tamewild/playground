@@ -2,8 +2,9 @@ use std::borrow::Cow;
 use std::fmt::Display;
 use std::str::FromStr;
 
-use iced::widget::{button, column, container, text, text_input, Column, Container, TextInput};
-use iced::{Border, Element, Length, Task, Theme};
+use iced::widget::{button, column, container, text, text_input, Column, Container, TextInput, slider, row, horizontal_space};
+use iced::{Border, Color, Element, Length, Padding, Task, Theme};
+use iced::alignment::Horizontal;
 use serde::{Deserialize, Serialize};
 
 use crate::PlaygroundMessage;
@@ -15,6 +16,15 @@ pub struct Parsable<T> {
 }
 
 impl<T> Parsable<T> {
+    pub fn new(object: T) -> Self
+        where T: Display
+    {
+        Self {
+            content: object.to_string(),
+            parsed: Some(object),
+        }
+    }
+
     fn is_valid(&self) -> bool {
         self.parsed.is_some()
     }
@@ -74,13 +84,32 @@ fn pair_in_column<'a>(
     column([a.into(), b.into()])
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+fn default_ui_scale() -> f32 {
+    100.0
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SerializedSettings {
     pub base_url: String,
     pub api_key: String,
     pub model: String,
     pub max_tokens: Parsable<u32>,
     pub temperature: Parsable<f32>,
+    #[serde(default = "default_ui_scale")]
+    pub ui_scale: f32
+}
+
+impl Default for SerializedSettings {
+    fn default() -> Self {
+        Self {
+            base_url: "".to_string(),
+            api_key: "".to_string(),
+            model: "".to_string(),
+            max_tokens: Parsable::new(1000),
+            temperature: Default::default(),
+            ui_scale: default_ui_scale(),
+        }
+    }
 }
 
 // TODO: Reduce the size of this enum?
@@ -92,6 +121,7 @@ pub enum SettingsMessage {
     ModelChanged(String),
     MaxTokensChanged(Parsable<u32>),
     TemperatureChanged(Parsable<f32>),
+    UiScaleChanged(f32),
     Save,
     SaveResult(Result<SerializedSettings, String>),
 }
@@ -201,7 +231,12 @@ impl SettingsView {
                 self.update_settings(|settings| settings.temperature = temperature);
 
                 Task::none()
-            }
+            },
+            SettingsMessage::UiScaleChanged(scale) => {
+                self.update_settings(|settings| settings.ui_scale = scale);
+
+                Task::none()
+            },
             SettingsMessage::Save => {
                 let new_settings = self.settings().live_settings.clone();
 
@@ -237,6 +272,7 @@ impl SettingsView {
                     model,
                     max_tokens,
                     temperature,
+                    ui_scale
                 } = &settings_state.live_settings;
 
                 column([
@@ -279,6 +315,30 @@ impl SettingsView {
                             temperature,
                             SettingsMessage::TemperatureChanged,
                         ),
+                    )
+                    .spacing(5)
+                    .into(),
+                    pair_in_column(
+                        row([
+                            container(text(format!("UI Scale ({}%)", ui_scale)))
+                                .padding(Padding {
+                                    top: 5.0,
+                                    bottom: 5.0,
+                                    right: 0.0,
+                                    left: 0.0,
+                                })
+                                .into(),
+                            button("Reset")
+                                .style(button::secondary)
+                                .on_press(SettingsMessage::UiScaleChanged(100.0))
+                                .into()
+                        ])
+                        .spacing(5),
+                        slider(
+                            50.0..=150.0,
+                            *ui_scale,
+                            SettingsMessage::UiScaleChanged
+                        )
                     )
                     .spacing(5)
                     .into(),
