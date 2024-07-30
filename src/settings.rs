@@ -3,7 +3,7 @@ use std::fmt::Display;
 use std::str::FromStr;
 
 use iced::widget::{button, column, container, text, text_input, Column, Container, TextInput};
-use iced::{Element, Length, Task, Theme};
+use iced::{Border, Element, Length, Task, Theme};
 use serde::{Deserialize, Serialize};
 
 use crate::PlaygroundMessage;
@@ -249,7 +249,7 @@ impl SettingsView {
                         text_input("Model ID e.g. gpt-4o-mini", model)
                             .on_input(SettingsMessage::ModelChanged),
                     )
-                    .spacing(5)
+                    .spacing(4.99) // weird clipping shit with text input
                     .into(),
                     pair_in_column(
                         "Max Tokens",
@@ -287,7 +287,10 @@ impl SettingsView {
                 .into()
             }
         })
-        .style(container::rounded_box)
+        .style(|theme| {
+            container::rounded_box(theme)
+                .border(Border::default())
+        })
         .padding(5.0)
         .width(Length::Fill)
         .height(Length::Fill)
