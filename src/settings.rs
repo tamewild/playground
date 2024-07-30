@@ -77,6 +77,7 @@ pub struct SerializedSettings {
     temperature: Parsable<f32>,
 }
 
+// TODO: Reduce the size of this enum?
 #[derive(Debug, Clone)]
 pub enum SettingsMessage {
     Load(SettingsState),
@@ -294,5 +295,17 @@ impl SettingsView {
         .padding(5.0)
         .width(Length::Fill)
         .height(Length::Fill)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::settings::{SerializedSettings, SettingsMessage, SettingsState};
+
+    #[test]
+    fn size() {
+        dbg!(size_of::<SerializedSettings>());
+        dbg!(size_of::<SettingsState>());
+        dbg!(size_of::<SettingsMessage>());
     }
 }
