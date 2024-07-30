@@ -1,7 +1,7 @@
-use iced::futures::AsyncReadExt;
-use iced::widget::{button, column, Column, Container, container, pick_list, row, Row, text_editor};
+use iced::Length;
+use iced::widget::{button, column, Column, Container, container, pick_list, row, text, text_editor};
 
-use crate::openai::{Message, Role};
+use crate::openai::Role;
 
 #[derive(Debug, Clone)]
 pub enum ChatViewMsg {
@@ -92,7 +92,34 @@ impl ChatView {
                 .map(message_widget)
                 .map(Into::into)
                 .chain(std::iter::once(
-                    button("+ Add Message")
+                    container(
+                        container(
+                            column([
+                                row(
+                                    [
+                                        button("Run"),
+                                        button("+ Add Message")
+                                            .style(button::secondary)
+                                    ]
+                                        .map(Into::into)
+                                )
+                                    .spacing(5)
+                                    .into(),
+                                container(
+                                    text("Failed to inference")
+                                        .style(text::danger)
+                                )
+                                    .style(container::dark)
+                                    .center_x(Length::Fill)
+                                    .into()
+                            ])
+                                .width(Length::Shrink)
+                                .spacing(5)
+                        )
+                            .style(container::rounded_box)
+                            .padding(5)
+                    )
+                        .center_x(Length::Fill)
                         .into()
                 ))
         )
