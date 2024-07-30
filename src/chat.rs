@@ -1,7 +1,7 @@
 use iced::Length;
-use iced::widget::{button, column, Column, Container, container, pick_list, row, text, text_editor};
+use iced::widget::{button, column, Column, Container, container, horizontal_space, pick_list, row, text, text_editor};
 
-use crate::openai::Role;
+use crate::openai::{Message, Role};
 
 #[derive(Debug, Clone)]
 pub enum ChatViewMsg {
@@ -12,6 +12,10 @@ pub enum ChatViewMsg {
     EditText {
         index: usize,
         action: text_editor::Action
+    },
+    AddMessage,
+    DeleteMessage {
+        index: usize
     }
 }
 
@@ -28,15 +32,29 @@ impl UiChatMsg {
     ];
 }
 
-fn message_widget((index, message): (usize, &UiChatMsg)) -> Container<ChatViewMsg> {
+fn message_widget((index, message): (usize, &UiChatMsg), not_inferencing: bool) -> Container<ChatViewMsg> {
     container(
         column([
-            pick_list(UiChatMsg::ROLES, Some(message.role), move |role| {
-                ChatViewMsg::ChangeRole {
-                    index,
-                    role
-                }
-            }).into(),
+            row([
+                pick_list(UiChatMsg::ROLES, Some(message.role), move |role| {
+                    ChatViewMsg::ChangeRole {
+                        index,
+                        role
+                    }
+                })
+                    .into(),
+                horizontal_space().into(),
+                button("Delete")
+                    .style(button::danger)
+                    .on_press_maybe(
+                        not_inferencing
+                            .then_some(ChatViewMsg::DeleteMessage {
+                                index
+                            })
+                    )
+                    .into()
+            ])
+                .into(),
             text_editor(&message.content)
                 .placeholder(match message.role {
                     Role::System => "Set a system prompt...",
@@ -58,7 +76,8 @@ fn message_widget((index, message): (usize, &UiChatMsg)) -> Container<ChatViewMs
 }
 
 pub struct ChatView {
-    messages: Vec<UiChatMsg>
+    messages: Vec<UiChatMsg>,
+    inferencing: bool
 }
 
 impl ChatView {
@@ -70,6 +89,7 @@ impl ChatView {
                     content: text_editor::Content::new(),
                 }
             ],
+            inferencing: false,
         }
     }
 
@@ -81,43 +101,44 @@ impl ChatView {
             ChatViewMsg::EditText { index, action } => {
                 self.messages[index].content.perform(action)
             }
+            ChatViewMsg::AddMessage => {
+                self.messages.push(UiChatMsg {
+                    role: Role::User,
+                    content: text_editor::Content::new(),
+                })
+            }
+            ChatViewMsg::DeleteMessage { index } => {
+                self.messages.remove(index);
+            }
         }
     }
 
     pub fn view(&self) -> Column<ChatViewMsg> {
+        let not_inferencing = !self.inferencing;
+
         column(
             self.messages
                 .iter()
                 .enumerate()
-                .map(message_widget)
+                .map(|pair| {
+                    message_widget(pair, not_inferencing)
+                })
                 .map(Into::into)
                 .chain(std::iter::once(
                     container(
-                        container(
-                            column([
-                                row(
-                                    [
-                                        button("Run"),
-                                        button("+ Add Message")
-                                            .style(button::secondary)
-                                    ]
-                                        .map(Into::into)
-                                )
-                                    .spacing(5)
-                                    .into(),
-                                container(
-                                    text("Failed to inference")
-                                        .style(text::danger)
-                                )
-                                    .style(container::dark)
-                                    .center_x(Length::Fill)
-                                    .into()
-                            ])
-                                .width(Length::Shrink)
-                                .spacing(5)
+                        row(
+                            [
+                                button("Run"),
+                                button("+ Add Message")
+                                    .on_press_maybe(
+                                        not_inferencing
+                                            .then_some(ChatViewMsg::AddMessage)
+                                    )
+                                    .style(button::secondary)
+                            ]
+                                .map(Into::into)
                         )
-                            .style(container::rounded_box)
-                            .padding(5)
+                            .spacing(5)
                     )
                         .center_x(Length::Fill)
                         .into()
