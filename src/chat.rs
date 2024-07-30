@@ -64,19 +64,25 @@ fn message_widget((index, message): (usize, &UiChatMsg), not_inferencing: bool) 
                     .into()
             ])
                 .into(),
-            text_editor(&message.content)
-                .placeholder(match message.role {
-                    Role::System => "Set a system prompt...",
-                    Role::User => "Enter your prompt...",
-                    Role::Assistant => "Enter the assistant's response..."
-                })
-                .on_action(move |action| {
-                    ChatViewMsg::EditText {
-                        index,
-                        action
-                    }
-                })
-                .into()
+            {
+                let mut editor = text_editor(&message.content)
+                    .placeholder(match message.role {
+                        Role::System => "Set a system prompt...",
+                        Role::User => "Enter your prompt...",
+                        Role::Assistant => "Enter the assistant's response..."
+                    });
+
+                if not_inferencing {
+                    editor = editor.on_action(move |action| {
+                        ChatViewMsg::EditText {
+                            index,
+                            action
+                        }
+                    })
+                }
+
+                editor.into()
+            }
         ])
             .spacing(5.0)
     )
