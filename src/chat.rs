@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use iced::{border, Color, Length, task, Task};
+use iced::alignment::Horizontal;
 use iced::widget::{button, column, Column, Container, container, horizontal_space, pick_list, row, scrollable, Scrollable, text, text_editor, vertical_space};
 use iced::widget::text_editor::{Action, Edit};
 use crate::openai::{CompletionRequest, Message, Role};
@@ -14,7 +15,7 @@ pub enum ChatViewMsg {
     },
     EditText {
         index: usize,
-        action: text_editor::Action
+        action: Action
     },
     AddMessage,
     DeleteMessage {
@@ -191,6 +192,8 @@ impl ChatView {
                 if let Some(msg) = self.messages.last_mut() {
                     msg.content.perform(Action::Edit(Edit::Paste(
                         Arc::new(delta.unwrap_or_else(|err| {
+                            self.inference_status = InferenceStatus::Idle;
+
                             format!("\n\nRan into an error:\n{err}")
                         }))
                     )))
@@ -213,24 +216,12 @@ impl ChatView {
                     .map(Into::into)
                     .chain(std::iter::once(
                         container(
-                            row(
-                                [
-                                    match not_inferencing {
-                                        true => button("Run").on_press(ChatViewMsg::Run),
-                                        false => button("Stop")
-                                            .style(button::danger)
-                                            .on_press(ChatViewMsg::Stop)
-                                    },
-                                    button("+ Add Message")
-                                        .on_press_maybe(
-                                            not_inferencing
-                                                .then_some(ChatViewMsg::AddMessage)
-                                        )
-                                        .style(button::secondary)
-                                ]
-                                    .map(Into::into)
-                            )
-                                .spacing(5)
+                            button("+ Add Message")
+                                .on_press_maybe(
+                                    not_inferencing
+                                        .then_some(ChatViewMsg::AddMessage)
+                                )
+                                .style(button::secondary)
                         )
                             .center_x(Length::Fill)
                             .into()
@@ -259,8 +250,31 @@ impl ChatView {
                 .padding(5)
                 .into(),
             container(
-                button("test")
+                row([
+                    horizontal_space().into(),
+                    match self.inference_status {
+                        InferenceStatus::Idle => {
+                            button(
+                                container("Run")
+                                    .center_x(Length::Fill)
+                            )
+                                .on_press(ChatViewMsg::Run)
+                        }
+                        InferenceStatus::Inferencing { .. } => {
+                            button(
+                                container("Stop")
+                                    .center_x(Length::Fill)
+                            )
+                                .style(button::danger)
+                                .on_press(ChatViewMsg::Stop)
+                        }
+                    }
+                        .width(Length::FillPortion(2))
+                        .into(),
+                    horizontal_space().into()
+                ])
             )
+                .width(Length::Fill)
                 .height(Length::Shrink)
                 .into()
         ])
