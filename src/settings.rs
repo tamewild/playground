@@ -333,7 +333,7 @@ impl SettingsView {
                                 .on_press(SettingsMessage::UiScaleChanged(100.0))
                                 .into()
                         ])
-                        .spacing(5),
+                        .spacing(7),
                         slider(
                             50.0..=150.0,
                             *ui_scale,
