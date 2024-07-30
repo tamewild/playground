@@ -112,10 +112,9 @@ impl Default for SerializedSettings {
     }
 }
 
-// TODO: Reduce the size of this enum?
 #[derive(Debug, Clone)]
 pub enum SettingsMessage {
-    Load(SettingsState),
+    Load(Box<SerializedSettings>),
     BaseUrlChanged(String),
     ApiKeyChanged(String),
     ModelChanged(String),
@@ -123,7 +122,7 @@ pub enum SettingsMessage {
     TemperatureChanged(Parsable<f32>),
     UiScaleChanged(f32),
     Save,
-    SaveResult(Result<SerializedSettings, String>),
+    SaveResult(Result<Box<SerializedSettings>, String>),
 }
 
 async fn load_existing_settings() -> anyhow::Result<SerializedSettings> {
@@ -179,10 +178,7 @@ impl SettingsView {
             Self::Loading,
             Task::future(async move {
                 let settings = load_existing_settings().await.unwrap_or_default();
-                SettingsMessage::Load(SettingsState {
-                    saved_settings: settings.clone(),
-                    live_settings: settings,
-                })
+                SettingsMessage::Load(Box::new(settings))
             }),
         )
     }
@@ -203,7 +199,12 @@ impl SettingsView {
     pub fn update(&mut self, message: SettingsMessage) -> Task<PlaygroundMessage> {
         match message {
             SettingsMessage::Load(state) => {
-                *self = SettingsView::Loaded(state);
+                let state = *state;
+
+                *self = SettingsView::Loaded(SettingsState {
+                    saved_settings: state.clone(),
+                    live_settings: state,
+                });
 
                 Task::none()
             }
@@ -242,13 +243,15 @@ impl SettingsView {
 
                 Task::future(save_settings(new_settings)).map(|settings| {
                     PlaygroundMessage::Settings(SettingsMessage::SaveResult(
-                        settings.map_err(|err| err.to_string()),
+                        settings.map(Box::new).map_err(|err| err.to_string()),
                     ))
                 })
             }
             SettingsMessage::SaveResult(res) => {
                 // Ignore the error for now
                 if let Ok(new_settings) = res {
+                    let new_settings = *new_settings;
+
                     *self = SettingsView::Loaded(SettingsState {
                         saved_settings: new_settings.clone(),
                         live_settings: new_settings,
@@ -370,6 +373,7 @@ impl SettingsView {
 
 #[cfg(test)]
 mod tests {
+    use crate::PlaygroundMessage;
     use crate::settings::{SerializedSettings, SettingsMessage, SettingsState};
 
     #[test]
@@ -377,5 +381,6 @@ mod tests {
         dbg!(size_of::<SerializedSettings>());
         dbg!(size_of::<SettingsState>());
         dbg!(size_of::<SettingsMessage>());
+        dbg!(size_of::<PlaygroundMessage>());
     }
 }
