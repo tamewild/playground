@@ -119,7 +119,9 @@ impl ChatView {
     pub fn update(&mut self, settings_view: &SettingsView, msg: ChatViewMsg) -> Task<ChatViewMsg> {
         match msg {
             ChatViewMsg::ChangeRole { index, role } => {
-                self.messages[index].role = role;
+                if matches!(self.inference_status, InferenceStatus::Idle) {
+                    self.messages[index].role = role;
+                }
 
                 Task::none()
             }
