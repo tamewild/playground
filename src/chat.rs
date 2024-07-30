@@ -1,6 +1,6 @@
 use std::sync::Arc;
-use iced::{Length, task, Task};
-use iced::widget::{button, column, Column, Container, container, horizontal_space, pick_list, row, text, text_editor};
+use iced::{border, Color, Length, task, Task};
+use iced::widget::{button, column, Column, Container, container, horizontal_space, pick_list, row, scrollable, Scrollable, text, text_editor, vertical_space};
 use iced::widget::text_editor::{Action, Edit};
 use crate::openai::{CompletionRequest, Message, Role};
 use crate::{openai, Playground, PlaygroundMessage};
@@ -201,42 +201,69 @@ impl ChatView {
         }
     }
 
+    fn message_list(&self, not_inferencing: bool) -> Scrollable<ChatViewMsg> {
+        scrollable(
+            column(
+                self.messages
+                    .iter()
+                    .enumerate()
+                    .map(|pair| {
+                        message_widget(pair, not_inferencing)
+                    })
+                    .map(Into::into)
+                    .chain(std::iter::once(
+                        container(
+                            row(
+                                [
+                                    match not_inferencing {
+                                        true => button("Run").on_press(ChatViewMsg::Run),
+                                        false => button("Stop")
+                                            .style(button::danger)
+                                            .on_press(ChatViewMsg::Stop)
+                                    },
+                                    button("+ Add Message")
+                                        .on_press_maybe(
+                                            not_inferencing
+                                                .then_some(ChatViewMsg::AddMessage)
+                                        )
+                                        .style(button::secondary)
+                                ]
+                                    .map(Into::into)
+                            )
+                                .spacing(5)
+                        )
+                            .center_x(Length::Fill)
+                            .into()
+                    ))
+            )
+                .spacing(10)
+        )
+            .spacing(3)
+    }
+
     pub fn view(&self) -> Column<ChatViewMsg> {
         let not_inferencing = matches!(self.inference_status, InferenceStatus::Idle);
 
-        column(
-            self.messages
-                .iter()
-                .enumerate()
-                .map(|pair| {
-                    message_widget(pair, not_inferencing)
+        column([
+            container(self.message_list(not_inferencing))
+                .style(|_| {
+                    container::Style {
+                        background: Some(Color::TRANSPARENT.into()),
+                        border: border::rounded(2)
+                            .width(1.0)
+                            .color(Color::from_rgba8(107, 107, 107, 0.5)),
+                        ..Default::default()
+                    }
                 })
-                .map(Into::into)
-                .chain(std::iter::once(
-                    container(
-                        row(
-                            [
-                                match not_inferencing {
-                                    true => button("Run").on_press(ChatViewMsg::Run),
-                                    false => button("Stop")
-                                        .style(button::danger)
-                                        .on_press(ChatViewMsg::Stop)
-                                },
-                                button("+ Add Message")
-                                    .on_press_maybe(
-                                        not_inferencing
-                                            .then_some(ChatViewMsg::AddMessage)
-                                    )
-                                    .style(button::secondary)
-                            ]
-                                .map(Into::into)
-                        )
-                            .spacing(5)
-                    )
-                        .center_x(Length::Fill)
-                        .into()
-                ))
-        )
-            .spacing(10)
+                .height(Length::Fill)
+                .padding(5)
+                .into(),
+            container(
+                button("test")
+            )
+                .height(Length::Shrink)
+                .into()
+        ])
+            .spacing(5.0)
     }
 }
