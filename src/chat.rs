@@ -1,10 +1,11 @@
 use std::sync::Arc;
+
 use iced::{border, Color, Length, task, Task};
-use iced::alignment::Horizontal;
-use iced::widget::{button, column, Column, Container, container, horizontal_space, pick_list, row, scrollable, Scrollable, text, text_editor, vertical_space};
+use iced::widget::{button, checkbox, column, Column, Container, container, horizontal_space, pick_list, row, scrollable, Scrollable, text_editor};
 use iced::widget::text_editor::{Action, Edit};
+
 use crate::openai::{CompletionRequest, Message, Role};
-use crate::{openai, Playground, PlaygroundMessage};
+use crate::openai;
 use crate::settings::SettingsView;
 
 #[derive(Debug, Clone)]
@@ -25,7 +26,8 @@ pub enum ChatViewMsg {
     Stop,
     Completion {
         delta: Result<String, String>
-    }
+    },
+    StickToBottom(bool)
 }
 
 struct UiChatMsg {
@@ -94,13 +96,15 @@ fn message_widget((index, message): (usize, &UiChatMsg), not_inferencing: bool) 
 enum InferenceStatus {
     Idle,
     Inferencing {
+        #[allow(dead_code)]
         abort_handle: task::Handle
     }
 }
 
 pub struct ChatView {
     messages: Vec<UiChatMsg>,
-    inference_status: InferenceStatus
+    inference_status: InferenceStatus,
+    stick_to_bottom: bool,
 }
 
 impl ChatView {
@@ -112,7 +116,8 @@ impl ChatView {
                     content: text_editor::Content::new(),
                 }
             ],
-            inference_status: InferenceStatus::Idle
+            inference_status: InferenceStatus::Idle,
+            stick_to_bottom: false,
         }
     }
 
@@ -209,11 +214,16 @@ impl ChatView {
 
                 Task::none()
             }
+            ChatViewMsg::StickToBottom(value) => {
+                self.stick_to_bottom = value;
+
+                Task::none()
+            }
         }
     }
 
     fn message_list(&self, not_inferencing: bool) -> Scrollable<ChatViewMsg> {
-        scrollable(
+        let mut scrollable = scrollable(
             column(
                 self.messages
                     .iter()
@@ -237,7 +247,13 @@ impl ChatView {
             )
                 .spacing(10)
         )
-            .spacing(3)
+            .spacing(3);
+
+        if self.stick_to_bottom {
+            scrollable = scrollable.anchor_bottom();
+        }
+
+        scrollable
     }
 
     pub fn view(&self) -> Column<ChatViewMsg> {
@@ -259,7 +275,6 @@ impl ChatView {
                 .into(),
             container(
                 row([
-                    horizontal_space().into(),
                     match self.inference_status {
                         InferenceStatus::Idle => {
                             button(
@@ -277,9 +292,19 @@ impl ChatView {
                                 .on_press(ChatViewMsg::Stop)
                         }
                     }
-                        .width(Length::FillPortion(2))
                         .into(),
-                    horizontal_space().into()
+                    button(
+                        checkbox("Stick to Bottom", self.stick_to_bottom)
+                            .on_toggle(ChatViewMsg::StickToBottom)
+                    )
+                        .style(|_, _| button::Style {
+                            text_color: Color::WHITE,
+                            ..Default::default()
+                        })
+                        .into(),
+                    horizontal_space()
+                        .width(Length::FillPortion(4))
+                        .into()
                 ])
             )
                 .width(Length::Fill)
