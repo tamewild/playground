@@ -209,7 +209,14 @@ impl ChatView {
 
                             format!("\n\nRan into an error:\n{err}")
                         }))
-                    )))
+                    )));
+
+                    if self.stick_to_bottom {
+                        return scrollable::snap_to(
+                            scrollable::Id::new("messages"),
+                            scrollable::RelativeOffset::END
+                        )
+                    }
                 }
 
                 Task::none()
@@ -223,7 +230,7 @@ impl ChatView {
     }
 
     fn message_list(&self, not_inferencing: bool) -> Scrollable<ChatViewMsg> {
-        let mut scrollable = scrollable(
+        scrollable(
             column(
                 self.messages
                     .iter()
@@ -247,13 +254,8 @@ impl ChatView {
             )
                 .spacing(10)
         )
-            .spacing(3);
-
-        if self.stick_to_bottom {
-            scrollable = scrollable.anchor_bottom();
-        }
-
-        scrollable
+            .id(scrollable::Id::new("messages"))
+            .spacing(3)
     }
 
     pub fn view(&self) -> Column<ChatViewMsg> {
