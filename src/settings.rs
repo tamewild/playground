@@ -18,6 +18,12 @@ impl<T> Parsable<T> {
     fn is_valid(&self) -> bool {
         self.parsed.is_some()
     }
+
+    pub fn parsed(&self) -> Option<T>
+        where T: Copy
+    {
+        self.parsed
+    }
 }
 
 impl<T: FromStr> Parsable<T> {
@@ -70,11 +76,11 @@ fn pair_in_column<'a>(
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct SerializedSettings {
-    base_url: String,
-    api_key: String,
-    model: String,
-    max_tokens: Parsable<u32>,
-    temperature: Parsable<f32>,
+    pub base_url: String,
+    pub api_key: String,
+    pub model: String,
+    pub max_tokens: Parsable<u32>,
+    pub temperature: Parsable<f32>,
 }
 
 // TODO: Reduce the size of this enum?
@@ -125,6 +131,10 @@ impl SettingsState {
 
     fn unsaved_changes(&self) -> bool {
         self.saved_settings != self.live_settings
+    }
+
+    pub fn saved(&self) -> &SerializedSettings {
+        &self.saved_settings
     }
 }
 

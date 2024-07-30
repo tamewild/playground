@@ -31,9 +31,8 @@ impl Playground {
     fn update(&mut self, message: PlaygroundMessage) -> Task<PlaygroundMessage> {
         match message {
             PlaygroundMessage::Chat(msg) => {
-                self.chat_view.update(msg);
-
-                Task::none()
+                self.chat_view.update(&self.settings_view, msg)
+                    .map(PlaygroundMessage::Chat)
             },
             PlaygroundMessage::Settings(msg) => self.settings_view.update(msg),
         }
