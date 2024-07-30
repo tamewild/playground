@@ -1,16 +1,20 @@
 use crate::settings::{SettingsMessage, SettingsView};
 use iced::widget::{container, row, Container, Row};
 use iced::{application, Element, Length, Task};
+use crate::chat::{ChatView, ChatViewMsg};
 
 mod openai;
 mod settings;
+mod chat;
 
 #[derive(Debug)]
 enum PlaygroundMessage {
-    Settings(SettingsMessage),
+    Chat(ChatViewMsg),
+    Settings(SettingsMessage)
 }
 
 struct Playground {
+    chat_view: ChatView,
     settings_view: SettingsView,
 }
 
@@ -19,29 +23,34 @@ impl Playground {
         let (settings_view, task) = SettingsView::new();
 
         (
-            Self { settings_view },
+            Self { chat_view: ChatView::new(), settings_view },
             task.map(PlaygroundMessage::Settings),
         )
     }
 
     fn update(&mut self, message: PlaygroundMessage) -> Task<PlaygroundMessage> {
         match message {
+            PlaygroundMessage::Chat(msg) => {
+                self.chat_view.update(msg);
+
+                Task::none()
+            },
             PlaygroundMessage::Settings(msg) => self.settings_view.update(msg),
         }
     }
 
     fn view(&self) -> Row<PlaygroundMessage> {
         row([
-            container(chats_placeholder())
+            container(
+                Element::from(self.chat_view.view())
+                    .map(PlaygroundMessage::Chat)
+            )
                 .width(Length::FillPortion(3))
+                .padding(5.0)
                 .into(),
             Element::from(self.settings_view.view()).map(PlaygroundMessage::Settings),
         ])
     }
-}
-
-fn chats_placeholder() -> Container<'static, PlaygroundMessage> {
-    container("Chats would be here").center(Length::Fill)
 }
 
 fn main() -> iced::Result {

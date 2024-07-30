@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Display, Formatter};
 use anyhow::anyhow;
 use iced::futures::{Stream, StreamExt, TryStreamExt};
 use reqwest::header::AUTHORIZATION;
@@ -7,7 +8,7 @@ use serde_json::Value;
 use std::future;
 use std::sync::OnceLock;
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Role {
     System,
@@ -15,10 +16,16 @@ pub enum Role {
     Assistant,
 }
 
+impl Display for Role {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        <Role as Debug>::fmt(self, f)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
-    content: String,
-    role: Role,
+    pub content: String,
+    pub role: Role,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
